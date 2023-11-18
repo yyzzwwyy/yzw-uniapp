@@ -11,7 +11,7 @@
       @scrolltolower="onScrolltolower"
       class="scroll-view"
     >
-      <PageSkeleton v-if="isLoading" />
+      <PageSkeleton v-if="isLoading"></PageSkeleton>
       <template v-else>
         <wSwiper :list="bannerList"></wSwiper>
         <!-- 商品分类 -->
@@ -27,11 +27,10 @@
 <script lang="ts" setup>
 // @ts-nocheck
 import CustomNavbar from './components/CustomNavbar'
-//import CategoryPanel from './components/CategoryPanel'
 import CategoryPanel from './components/CategoryPanel'
 import HotPannel from './components/HotPannel'
-import Guess from '@/components/Guess/Guess'
 import type { GuessInstance } from '@/types/components'
+import Guess from '@/components/Guess/Guess'
 import PageSkeleton from './components/PageSkeleton'
 // 获取轮播图
 const bannerList = ref<BannerItem[]>([])
@@ -87,12 +86,14 @@ page {
   height: 100%;
   overflow: hidden;
 }
+
 /* 设置滚动区高度 */
 .viewport {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
+
 .scroll-view {
   flex: 1;
   overflow: hidden;
