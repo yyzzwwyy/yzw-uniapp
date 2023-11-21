@@ -38,10 +38,8 @@ const goods = ref<GoodsResult>()
 const getGoodsByIdData = async () => {
   const res = await getGoodsByIdAPI(query.id)
   goods.value = res.result
-  // const i = res.result.skus.map((v) => ({
-  //   sku_name_arr: v.specs
-  // }))
-  // console.log(i)
+  console.log(res.result.specs)
+
   // SKU组件所需格式
   localdata.value = {
     _id: res.result.id,
@@ -78,7 +76,7 @@ const onTapImage = (url: string) => {
   })
 }
 
-// uni-ui 弹出层组件 ref
+//uni-ui 弹出层组件 ref
 const popup = ref<{
   open: (type?: UniHelper.UniPopupType) => void
   close: () => void
@@ -105,11 +103,17 @@ const selectArrText = computed(() => {
   return skuPopuRef.value?.selectArr?.join(' ').trim() || '请选择商品规格'
 })
 
-// 加入购物车
+//加入购物车
 const onAddCart = async (ev: SkuPopupEvent) => {
   await postMemberCartAPI({ attrsText: selectArrText.value, count: ev.buy_num, id: ev.goods_id })
   uni.showToast({ title: '添加成功' })
   isShowSku.value = false
+}
+
+const onBuyNow = (ev: SkuPopupEvent) => {
+  uni.navigateTo({
+    url: `/pagesOrder/create/create?id=${ev.goods_id}&count=${ev.buy_num}&attrsText=${selectArrText.value}`
+  })
 }
 </script>
 
@@ -117,6 +121,7 @@ const onAddCart = async (ev: SkuPopupEvent) => {
   <!-- SKU弹窗组件 -->
   <vk-data-goods-sku-popup
     @add-cart="onAddCart"
+    @buy-now="onBuyNow"
     v-model="isShowSku"
     :localdata="localdata"
     :mode="mode"
@@ -232,7 +237,7 @@ const onAddCart = async (ev: SkuPopupEvent) => {
     </view>
     <view class="buttons">
       <view @tap="openSkuPopup(SkuMode.Cart)" class="addcart"> 加入购物车 </view>
-      <view @tap="openSkuPopup(SkuMode.Buy)" class="buynow"> 立即购买 </view>
+      <view @tap="openSkuPopup(SkuMode.Buy)" class="buynow" @click="onBuyNow"> 立即购买 </view>
     </view>
   </view>
 </template>

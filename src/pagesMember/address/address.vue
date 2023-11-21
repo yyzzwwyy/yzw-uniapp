@@ -28,7 +28,14 @@ const onDeleteAddress = (id: string) => {
     }
   })
 }
-//
+
+//修改收货地址
+const onChangeAddress = (item: AddressItem) => {
+  //修改选中的收货地址
+  const addressStore = useAddressStore()
+  addressStore.changeSelectedAddress(item)
+  uni.navigateBack()
+}
 </script>
 
 <template>
