@@ -65,6 +65,36 @@ const getMemberOrderByIdData = async () => {
 onLoad(() => {
   getMemberOrderByIdData()
 })
+//倒计时结束时间
+const onTimeup = () => {
+  //修改订单状态为已取消
+  order.value!.orderState = OrderState.YiQuXiao
+}
+//订单支付
+const onOrderPay = async () => {
+  //通过环境变量区分开发环境
+  if (import.meta.env.DEV) {
+    //开发环境：模拟支付，修改订单状态已支付
+    await getPayMockAPI(parseInt(query.id))
+  } else {
+    //生产环境：获取支付参数+发起微信支付
+    const res = await getPayWxPayMiniPayAPI({ orderId: query.id })
+    await wx.requestPayment(res.result)
+  }
+  //关闭当前页，再跳转支付结果页
+  uni.redirectTo({ url: `/pagesOrder/payment/payment?id=${query.id}` })
+}
+//是否为开发环境
+const isDev = import.meta.env.DEV
+//模拟发货
+const onOrderSend = async () => {
+  if (isDev) {
+    await getMemberOrderConsignmentByIdAPI(query.id)
+    uni.showToast({ icon: 'success', title: '模拟发货完成' })
+    //主动更新订单状态
+    order.value!.orderState = OrderState.DaiShouHuo
+  }
+}
 </script>
 
 <template>
@@ -86,9 +116,16 @@ onLoad(() => {
           <view class="tips">
             <text class="money">应付金额: ¥ {{ order!.payMoney }}</text>
             <text class="time">支付剩余</text>
-            00 时 29 分 59 秒
+            <uni-countdown
+              :second="order.countdown"
+              color="#fff"
+              splitor-color="#fff"
+              :show-day="false"
+              :show-colon="false"
+              @timeup="onTimeup"
+            />
           </view>
-          <view class="button">去支付</view>
+          <view class="button" @tap="onOrderPay">去支付</view>
         </template>
         <!-- 其他订单状态:展示再次购买按钮 -->
         <template v-else>
@@ -103,7 +140,9 @@ onLoad(() => {
               再次购买
             </navigator>
             <!-- 待发货状态：模拟发货,开发期间使用,用于修改订单状态为已发货 -->
-            <view v-if="false" class="button"> 模拟发货 </view>
+            <view v-if="isDev && order.orderState == OrderState.DaiFaHuo" @tap="onOrderSend" class="button">
+              模拟发货
+            </view>
           </view>
         </template>
       </view>
@@ -126,7 +165,7 @@ onLoad(() => {
         <view class="item">
           <navigator
             class="navigator"
-            v-for="item in order.skus"
+            v-for="item in order?.skus"
             :key="item.id"
             :url="`/pages/goods/goods?id=${item.goodsId}`"
             hover-class="none"
@@ -145,7 +184,7 @@ onLoad(() => {
             </view>
           </navigator>
           <!-- 待评价状态:展示按钮 -->
-          <view class="action" v-if="order.orderState === OrderState.DaiPingJia">
+          <view class="action" v-if="order!.orderState === OrderState.DaiPingJia">
             <view class="button primary">申请售后</view>
             <navigator url="" class="button"> 去评价 </navigator>
           </view>
@@ -158,11 +197,11 @@ onLoad(() => {
           </view>
           <view class="row">
             <view class="text">运费: </view>
-            <view class="symbol">{{ order?.postFree }}</view>
+            <view class="symbol">{{ order!.postFree }}</view>
           </view>
           <view class="row">
             <view class="text">应付金额: </view>
-            <view class="symbol primary">{{ order?.payMoney }}</view>
+            <view class="symbol primary">{{ order!.payMoney }}</view>
           </view>
         </view>
       </view>
@@ -174,7 +213,7 @@ onLoad(() => {
           <view class="item">
             订单编号: {{ query.id }} <text class="copy" @tap="onCopy(query.id)">复制</text>
           </view>
-          <view class="item">下单时间: {{ order.createTime }}</view>
+          <view class="item">下单时间: {{ order!.createTime }}</view>
         </view>
       </view>
 
@@ -186,7 +225,7 @@ onLoad(() => {
       <view class="toolbar" :style="{ paddingBottom: safeAreaInsets?.bottom + 'px' }">
         <!-- 待付款状态:展示支付按钮 -->
         <template v-if="order.orderState === OrderState.DaiFuKuan">
-          <view class="button primary" @tap="null"> 去支付 </view>
+          <view class="button primary" @tap="onOrderPay"> 去支付 </view>
           <view class="button" @tap="popup?.open?.()"> 取消订单 </view>
         </template>
         <!-- 其他订单状态:按需展示按钮 -->

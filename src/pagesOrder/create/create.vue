@@ -7,6 +7,7 @@ const query = defineProps<{
   id?: string
   count?: string
   attrsText?: string
+  orderId?: string
 }>()
 
 // 获取屏幕边界到安全区域距离
@@ -43,6 +44,10 @@ const getMemberOrderPreData = async () => {
       count: query.count,
       attrsText: query.attrsText!
     })
+    orderPre.value = res.result
+  } else if (query.orderId) {
+    //再次购买
+    const res = await getMemberOrderRepurchaseByIdAPI(query.orderId)
     orderPre.value = res.result
   } else {
     // 调用预付订单 API
