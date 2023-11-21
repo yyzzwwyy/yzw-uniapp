@@ -60,6 +60,46 @@ const order = ref<OrderResult>()
 const getMemberOrderByIdData = async () => {
   const res = await getMemberOrderByIdAPI(query.id)
   order.value = res.result
+
+  if (
+    [OrderState.DaiShouHuo, OrderState.DaiPingJia, OrderState.YiWanCheng].includes(order.value.orderState)
+  ) {
+    getMemberOrderLogisticsByIdData()
+  }
+}
+
+// 获取物流信息
+const logisticList = ref<LogisticItem[]>([])
+const getMemberOrderLogisticsByIdData = async () => {
+  console.log('getMemberOrderLogisticsByIdData :>> ', '获取订单物流')
+  const res = await getMemberOrderLogisticsByIdAPI(query.id)
+  logisticList.value = res.result.list
+}
+
+// 删除订单
+const onOrderDelete = () => {
+  // 二次确认
+  uni.showModal({
+    content: '是否删除订单',
+    confirmColor: '#27BA9B',
+    success: async (success) => {
+      if (success.confirm) {
+        await deleteMemberOrderAPI([query.id])
+        uni.redirectTo({ url: '/pagesOrder/list/list' })
+      }
+    }
+  })
+}
+// 取消订单
+const onOrderCancel = async () => {
+  // 发送请求
+  const res = await getMemberOrderCancelByIdAPI({ id: query.id, cancelReason: reason.value })
+  // 更新订单信息
+  order.value = res.result
+  // 关闭弹窗
+  popup.value?.close!()
+  // 轻提示
+  uni.showToast({ icon: 'none', title: '订单取消成功' })
 }
 
 onLoad(() => {
@@ -95,6 +135,21 @@ const onOrderSend = async () => {
     order.value!.orderState = OrderState.DaiShouHuo
   }
 }
+
+// 确认收货
+const onOrderConfirm = () => {
+  // ⼆次确认弹窗
+  uni.showModal({
+    content: '为保障您的权益，请收到货并确认⽆误后，再确认收货',
+    success: async (success) => {
+      if (success.confirm) {
+        const res = await putMemberOrderReceiptByIdAPI(query.id)
+        // 更新订单状态
+        order.value = res.result
+      }
+    }
+  })
+}
 </script>
 
 <template>
@@ -106,12 +161,12 @@ const onOrderSend = async () => {
       <view class="title">订单详情</view>
     </view>
   </view>
-  <scroll-view scroll-y class="viewport" id="scroller">
-    <template v-if="order?.orderState === OrderState.DaiFuKuan">
+  <scroll-view scroll-y enable-back-to-top class="viewport" id="scroller">
+    <template v-if="order">
       <!-- 订单状态 -->
       <view class="overview" :style="{ paddingTop: safeAreaInsets!.top + 20 + 'px' }">
         <!-- 待付款状态:展示去支付按钮和倒计时 -->
-        <template v-if="order?.orderState === OrderState.DaiFuKuan">
+        <template v-if="order!.orderState === OrderState.DaiFuKuan">
           <view class="status icon-clock">等待付款</view>
           <view class="tips">
             <text class="money">应付金额: ¥ {{ order!.payMoney }}</text>
@@ -149,9 +204,9 @@ const onOrderSend = async () => {
       <!-- 配送状态 -->
       <view class="shipment">
         <!-- 订单物流信息 -->
-        <view v-for="item in 1" :key="item" class="item">
-          <view class="message"> 您已在栖霞区南工院完成取件，感谢使用菜鸟驿站，期待再次为您服务。 </view>
-          <view class="date"> 2023-11-30 13:14:20 </view>
+        <view v-for="item in logisticList" :key="item.id" class="item">
+          <view class="message"> {{ item.text }} </view>
+          <view class="date"> {{ item.time }} </view>
         </view>
         <!-- 用户收货地址 -->
         <view class="locate">
@@ -184,25 +239,24 @@ const onOrderSend = async () => {
             </view>
           </navigator>
           <!-- 待评价状态:展示按钮 -->
-          <view class="action" v-if="order!.orderState === OrderState.DaiPingJia">
-            <view class="button primary">申请售后</view>
-            <navigator url="" class="button"> 去评价 </navigator>
-          </view>
+          <view class="action" v-if="order!.orderState === OrderState.DaiPingJia">去评价</view>
+          <view class="button primary">申请售后</view>
+          <navigator url="" class="button"> 去评价 </navigator>
         </view>
-        <!-- 合计 -->
-        <view class="total">
-          <view class="row">
-            <view class="text">商品总价: </view>
-            <view class="symbol">{{ order!.totalMoney }}</view>
-          </view>
-          <view class="row">
-            <view class="text">运费: </view>
-            <view class="symbol">{{ order!.postFree }}</view>
-          </view>
-          <view class="row">
-            <view class="text">应付金额: </view>
-            <view class="symbol primary">{{ order!.payMoney }}</view>
-          </view>
+      </view>
+      <!-- 合计 -->
+      <view class="total">
+        <view class="row">
+          <view class="text">商品总价: </view>
+          <view class="symbol">{{ order!.totalMoney }}</view>
+        </view>
+        <view class="row">
+          <view class="text">运费: </view>
+          <view class="symbol">{{ order!.postFree }}</view>
+        </view>
+        <view class="row">
+          <view class="text">应付金额: </view>
+          <view class="symbol primary">{{ order!.payMoney }}</view>
         </view>
       </view>
 
@@ -238,11 +292,15 @@ const onOrderSend = async () => {
             再次购买
           </navigator>
           <!-- 待收货状态: 展示确认收货 -->
-          <view class="button primary" v-if="order.orderState === OrderState.DaiShouHuo"> 确认收货 </view>
+          <view class="button" v-if="order.orderState === OrderState.DaiShouHuo" @tap="onOrderConfirm">
+            确认收货
+          </view>
           <!-- 待评价状态: 展示去评价 -->
           <view class="button" v-if="order.orderState === OrderState.DaiPingJia"> 去评价 </view>
           <!-- 待评价/已完成/已取消 状态: 展示删除订单 -->
-          <view class="button delete" v-if="order.orderState >= OrderState.DaiPingJia"> 删除订单 </view>
+          <view class="button delete" v-if="order.orderState >= OrderState.DaiPingJia" @tap="onOrderDelete">
+            删除订单
+          </view>
         </template>
       </view>
     </template>
@@ -264,7 +322,7 @@ const onOrderSend = async () => {
       </view>
       <view class="footer">
         <view class="button" @tap="popup?.close?.()">取消</view>
-        <view class="button primary">确认</view>
+        <view class="button primary" @tap="onOrderCancel">确认</view>
       </view>
     </view>
   </uni-popup>
